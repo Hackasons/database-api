@@ -2,6 +2,7 @@ const express = require('express');
 const uuid = require('uuid');
 const router = express.Router();
 const crypto = require("crypto");
+const async = require('async');
 
 const mongodb = require("../mongo");
 
@@ -57,21 +58,74 @@ internals.login = (req, res, next) => {
 };
 
 internals.signup = (req, res, next) => {
-    req.body.password = encrypt(req.body.password)
-    req.body.accountId = uuid.v4().replace(/-/g, '');
-    mongodb(collection).insertOne( req.body ).then(function(results) {
-        res.send(results);
+
+    async.series({
+        searchAccount : callback => {
+            mongodb(collection).findOne( { email : req.body.email }, function(err, results){
+                if (err) {
+                    return callback(err, null);
+                } else if (results) {
+                    return callback("exist", null);
+                } else {
+                    return callback(null, null);
+                }
+            });
+        },
+        createAccount : callback => {
+            req.body.password = encrypt(req.body.password)
+            req.body.accountId = uuid.v4().replace(/-/g, '');
+            mongodb(collection).insertOne( req.body ).then(function(results) {
+                return callback(null, results);
+            });
+        }
+    },
+    (err, results) => {
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(results.createAccount);
+        }
     });
 };
 
 internals.deleteAccout = (req, res, next) => {
-    mongodb(collection).findOneAndDelete( { accountId : req.params.accountId }, {}, function(err, results){
+
+    async.series({
+        getAccount : callback => {
+            mongodb(collection).findOne( { accountId : req.params.accountId }, function(err, results){
+                if (err) {
+                    return callback(err, null);
+                } else if (!results) {
+                    return callback("no profile", null);
+                } else {
+                    if (req.body.email !== results.email) {
+                            return callback("error email", null);
+                    } else if (req.body.password !== decrypt(results.password)) {
+                        return callback("error password", null);
+                    } else {
+                        return callback(null, results)
+                    }
+                }
+            });
+        },
+        deleteAccout : callback => {
+            mongodb(collection).findOneAndDelete( { accountId : req.params.accountId }, {}, function(err, results){
+                if (err) {
+                    return callback(err, null);
+                } else {
+                    return callback(null, results);
+                }
+            });
+        }
+    },
+    (err, results) => {
         if (err) {
             res.send(err);
         } else {
-            res.send(results);
+            res.send("all green")
         }
     });
+
 };
 
 //routings
