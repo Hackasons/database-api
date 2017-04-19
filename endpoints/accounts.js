@@ -27,7 +27,7 @@ let decrypt = (text) => {
 
 const internals = {};
 
-internals.getAccounts = (req, res, next) => {
+internals.getAccounts = (req, res) => {
     mongodb(collection).find().toArray(function(err, results){
         if (err) {
             res.send(err)
@@ -37,7 +37,7 @@ internals.getAccounts = (req, res, next) => {
     });
 };
 
-internals.getAccount = (req, res, next) => {
+internals.getAccount = (req, res) => {
     mongodb(collection).findOne( { accountId : req.params.accountId }, function(err, results){
         if (err) {
             res.send(err)
@@ -47,7 +47,7 @@ internals.getAccount = (req, res, next) => {
     });
 };
 
-internals.login = (req, res, next) => {
+internals.login = (req, res) => {
     mongodb(collection).findOne( { email: req.body.email }, function(err, results){
         if (req.body.password === decrypt(results.password)) {
             res.send(results);
@@ -57,7 +57,7 @@ internals.login = (req, res, next) => {
     });
 };
 
-internals.signup = (req, res, next) => {
+internals.signup = (req, res) => {
 
     async.series({
         searchAccount : callback => {
@@ -88,7 +88,7 @@ internals.signup = (req, res, next) => {
     });
 };
 
-internals.deleteAccout = (req, res, next) => {
+internals.deleteAccout = (req, res) => {
 
     async.series({
         getAccount : callback => {
@@ -128,6 +128,16 @@ internals.deleteAccout = (req, res, next) => {
 
 };
 
+internals.updateAccount = (req, res) => {
+    mongodb(collection).findOneAndUpdate( {accountId: req.params.accountId }, req.body, {}, function(err, results){
+        if (err) {
+            res.send(err);
+        } else {
+            res.send(results);
+        }
+  });
+};
+
 //routings
 
 router.get('/', internals.getAccounts);
@@ -139,6 +149,8 @@ router.post('/login', internals.login);
 router.post('/signup', internals.signup);
 
 router.delete('/:accountId', internals.deleteAccout);
+
+router.put('/:accountId', internals.updateAccount);
 
 
 
